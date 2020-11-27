@@ -104,7 +104,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
+# env/
 venv/
 ENV/
 env.bak/
@@ -113,6 +113,9 @@ venv.bak/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+# VSCode project settings
+.vscode
 
 # Rope project settings
 .ropeproject
@@ -127,3 +130,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# nmf_lecture file
+nmf_lecture.py
