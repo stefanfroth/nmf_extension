@@ -11,8 +11,6 @@ import numpy as np
 from sklearn.decomposition._nmf import _check_init, _fit_multiplicative_update, _compute_regularization, _check_string_param, _beta_loss_to_float, _initialize_nmf, _update_coordinate_descent, norm,  _fit_multiplicative_update, _beta_divergence
 from sklearn.decomposition._cdnmf_fast import _update_cdnmf_fast
 from sklearn.decomposition import NMF
-# from sklearn.base import BaseEstimator
-
 from sklearn.utils import check_array, _deprecate_positional_args, check_X_y, check_random_state
 from sklearn.utils.extmath import randomized_svd, safe_sparse_dot
 from sklearn.utils.validation import check_non_negative
@@ -84,35 +82,41 @@ np.random.seed(10)
 #     return user_feature_matrix # user_feature_matrix.values
 
 
-# def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
-#                                random_state):
-#     """Helper function for _fit_coordinate_descent
-#     Update W to minimize the objective function, iterating once over all
-#     coordinates. By symmetry, to update H, one can call
-#     _update_coordinate_descent(X.T, Ht, W, ...)
-#     """
-#     n_components = Ht.shape[1]
+def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
+                               random_state):
+    """Helper function for _fit_coordinate_descent
+    Update W to minimize the objective function, iterating once over all
+    coordinates. By symmetry, to update H, one can call
+    _update_coordinate_descent(X.T, Ht, W, ...)
+    """
+    n_components = Ht.shape[1]
 
-#     HHt = np.dot(Ht.T, Ht)
-#     XHt = safe_sparse_dot(X, Ht)
-#     XHt[np.isnan(XHt)] = np.dot(np.ones(shape=(1, 5)), Ht)[0]
-#     # print(f'XHt is {XHt}')
+    HHt = np.dot(Ht.T, Ht)
+    ## Added: Make the missing values zeros
+    X[np.isnan(X)] = 0
+    XHt = safe_sparse_dot(X, Ht)
+    #print(f'X is {X}')
+    #print(f'Ht is {Ht}')
+    #print(f'XHt is {XHt}')
+    # TODO: https://stackoverflow.com/questions/57765137/nansum-only-if-at-least-one-value-is-not-nan-numpy
+    # np.lib.nanfunctions._replace_nan(arr,value)
+    # XHt[np.isnan(XHt)] = np.dot(np.ones(shape=(1, X.shape[1])), Ht)[0]
 
-#     # L2 regularization corresponds to increase of the diagonal of HHt
-#     if l2_reg != 0.:
-#         # adds l2_reg only on the diagonal
-#         HHt.flat[::n_components + 1] += l2_reg
-#     # L1 regularization corresponds to decrease of each element of XHt
-#     if l1_reg != 0.:
-#         XHt -= l1_reg
+    # L2 regularization corresponds to increase of the diagonal of HHt
+    if l2_reg != 0.:
+        # adds l2_reg only on the diagonal
+        HHt.flat[::n_components + 1] += l2_reg
+    # L1 regularization corresponds to decrease of each element of XHt
+    if l1_reg != 0.:
+        XHt -= l1_reg
 
-#     if shuffle:
-#         permutation = random_state.permutation(n_components)
-#     else:
-#         permutation = np.arange(n_components)
-#     # The following seems to be required on 64-bit Windows w/ Python 3.5.
-#     permutation = np.asarray(permutation, dtype=np.intp)
-#     return _update_cdnmf_fast(W, HHt, XHt, permutation)
+    if shuffle:
+        permutation = random_state.permutation(n_components)
+    else:
+        permutation = np.arange(n_components)
+    # The following seems to be required on 64-bit Windows w/ Python 3.5.
+    permutation = np.asarray(permutation, dtype=np.intp)
+    return _update_cdnmf_fast(W, HHt, XHt, permutation)
 
 # def update_item_feature_matrix(item_feature_matrix, user_feature_matrix, alpha, errors):
 #     '''
