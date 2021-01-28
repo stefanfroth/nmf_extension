@@ -1,9 +1,12 @@
 '''Run a basic test to check if the test data has missing values'''
+import logging
 
 import pytest # later for pytest.raise
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.decomposition import NMF
+
+LOGGER = logging.getLogger(__name__)
 
 def test_missing(test_data):
     '''Test whether the test data actually has missing values'''
@@ -35,7 +38,7 @@ def test_better_zero_imputation(test_data, test_model):
     P_hat = test_model.fit_transform(R_missing)
     R_hat = np.matmul(P_hat, test_model.components_)
     mse_custom = mean_squared_error(R, R_hat)
-    print(f'The mean squared error of this technique is {mse_custom}')
+    logging.info(f'The mean squared error of this technique is {mse_custom}')
 
     # Calculate R_hat with zero imputation
     R_missing[np.isnan(R_missing)] = 0
@@ -44,7 +47,7 @@ def test_better_zero_imputation(test_data, test_model):
     P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
     R_hat_zero_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
     mse_zero_imputed = mean_squared_error(R, R_hat_zero_imputed)
-    print(f'The mean squared error of the zero imputed variant is {mse_zero_imputed}')
+    logging.info(f'The mean squared error of the zero imputed variant is {mse_zero_imputed}')
 
     # Assert that the algorithm works better
     assert mse_custom <= mse_zero_imputed
