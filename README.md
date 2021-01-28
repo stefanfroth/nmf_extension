@@ -24,13 +24,7 @@ X, y = load_digits(return_X_y=True)
 mask = np.random.randint(0, 2, size=X.shape).astype(np.bool) 
 X[mask] = np.nan
 
-# convert to pandas 
-X = pd.DataFrame(X)
-
 # run the model
 m = CustomNMF(n_components=20) 
-m.fit(X)
-
-# does not work currently
-m.transform(X)
+m.fit_transform(X)
 ```
