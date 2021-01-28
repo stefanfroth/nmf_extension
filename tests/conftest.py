@@ -1,5 +1,7 @@
 import pytest
+from nmf_extension.nmf import CustomNMF
 
+## TODO: Check whether it is faster to load from a file or to create new each time
 @pytest.fixture
 def test_data():
     import numpy as np
@@ -20,3 +22,8 @@ def test_data():
     R_missing[mask<200] = np.nan
 
     return (R, R_missing)
+
+@pytest.fixture
+def test_model():
+    '''Creates an instance of the CustomNMF'''
+    return CustomNMF(n_components=4)
