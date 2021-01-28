@@ -8,6 +8,14 @@ from sklearn.decomposition import NMF
 
 LOGGER = logging.getLogger(__name__)
 
+## TODO: Implement the number of Components as a fixture of its own?
+def fit_model(model, R):
+    '''Fit a model with R'''
+    P_hat = model.fit_transform(R)
+    R_hat = np.matmul(P_hat, model.components_)
+    return R_hat
+
+
 def test_missing(test_data):
     '''Test whether the test data actually has missing values'''
     R_missing = test_data[1]
@@ -25,7 +33,9 @@ def test_shape(test_data, test_model):
     R_hat = np.matmul(P_hat, test_model.components_)
     assert R_hat.shape == R_missing.shape
 
-def test_better_zero_imputation(test_data, test_model):
+## TODO: Test whether the mse remains unchanged for the movie dataset as well
+@pytest.mark.parametrize('impute', list(range(6)))
+def test_better(test_data, test_model, impute):
     '''
     Test whether the CustomNMF actually performs better than an imputation
     with 0s
@@ -41,14 +51,15 @@ def test_better_zero_imputation(test_data, test_model):
     logging.info(f'The mean squared error of this technique is {mse_custom}')
 
     # Calculate R_hat with zero imputation
-    R_missing[np.isnan(R_missing)] = 0
+    R_missing[np.isnan(R_missing)] = impute
     ## TODO: make the number of components flexible
-    classic_nmf = NMF(n_components=4)
-    P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
-    R_hat_zero_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
-    mse_zero_imputed = mean_squared_error(R, R_hat_zero_imputed)
-    logging.info(f'The mean squared error of the zero imputed variant is {mse_zero_imputed}')
+    # classic_nmf = NMF(n_components=4)
+    # P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
+    # R_hat_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
+    R_hat_imputed = fit_model(NMF(n_components=4), R_missing)
+    mse_imputed = mean_squared_error(R, R_hat_imputed)
+    logging.info(f'The mean squared error of the {impute} imputed variant is {mse_imputed}')
 
     # Assert that the algorithm works better
-    assert mse_custom <= mse_zero_imputed
+    assert mse_custom <= mse_imputed
 
