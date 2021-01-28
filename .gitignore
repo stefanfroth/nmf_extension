@@ -133,3 +133,6 @@ dmypy.json
 
 # nmf_lecture file
 nmf_lecture.py
+
+# data directory
+/data
