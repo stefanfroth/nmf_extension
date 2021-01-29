@@ -35,7 +35,7 @@ def test_shape(test_data, test_model):
 
 ## TODO: Test whether the mse remains unchanged for the movie dataset as well
 @pytest.mark.parametrize('impute', list(range(6)))
-def test_better(test_data, test_model, impute):
+def test_better(test_data, test_model, impute, components, iterations):
     '''
     Test whether the CustomNMF actually performs better than an imputation
     with 0s
@@ -56,7 +56,7 @@ def test_better(test_data, test_model, impute):
     # classic_nmf = NMF(n_components=4)
     # P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
     # R_hat_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
-    R_hat_imputed = fit_model(NMF(n_components=4), R_missing)
+    R_hat_imputed = fit_model(NMF(n_components=components, max_iter=iterations), R_missing)
     mse_imputed = mean_squared_error(R, R_hat_imputed)
     logging.info(f'The mean squared error of the {impute} imputed variant is {mse_imputed}')
 
