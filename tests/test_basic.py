@@ -21,10 +21,23 @@ def test_missing(test_data):
     R_missing = test_data[1]
     assert np.isnan(R_missing).sum() > 0
 
-def test_running(test_data, test_model):
-    '''Tests whether the CustomNMF function can be imported and run'''
+def test_fit_transform(test_data, test_model):
+    '''
+    Tests whether the CustomNMF class can be instantiated and the
+    .fit_transform() method works.
+    '''
     R_missing = test_data[1]
     assert isinstance(test_model.fit_transform(R_missing), np.ndarray)
+
+def test_transform(test_data, test_model):
+    '''Tests whether an input array with null values can be transformed'''
+    R_missing = test_data[1]
+    test_model.fit_transform(R_missing)
+    new_user = np.ones((1,1000))
+    mask = np.random.randint(1000)
+    new_user[:,mask] = np.nan
+    assert isinstance(np.matmul(test_model.transform(new_user), test_model.components_), np.ndarray)
+
 
 def test_shape(test_data, test_model):
     '''Tests whether the resulting R_hat will have the right shape'''
@@ -34,8 +47,9 @@ def test_shape(test_data, test_model):
     assert R_hat.shape == R_missing.shape
 
 ## TODO: Test whether the mse remains unchanged for the movie dataset as well
+## TODO: For now it tests that the CustomNMF is not performing worse
 @pytest.mark.parametrize('impute', list(range(6)))
-def test_better(test_data, test_model, impute):
+def test_better(test_data, test_model, impute, components, iterations):
     '''
     Test whether the CustomNMF actually performs better than an imputation
     with 0s
@@ -56,10 +70,10 @@ def test_better(test_data, test_model, impute):
     # classic_nmf = NMF(n_components=4)
     # P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
     # R_hat_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
-    R_hat_imputed = fit_model(NMF(n_components=4), R_missing)
+    R_hat_imputed = fit_model(NMF(n_components=components, max_iter=iterations), R_missing)
     mse_imputed = mean_squared_error(R, R_hat_imputed)
     logging.info(f'The mean squared error of the {impute} imputed variant is {mse_imputed}')
 
     # Assert that the algorithm works better
-    assert mse_custom <= mse_imputed
+    assert ~(round(mse_custom, 2) > round(mse_imputed, 2))
 

@@ -1,7 +1,6 @@
 # %%
 '''
-Write my own algorithm that performs NMF on the matrix and returns the 
-imputed matrix.
+Extend sklearns NMF algorithm to perform work with missing values.
 '''
 import numbers
 import warnings
@@ -13,74 +12,26 @@ from sklearn.decomposition._cdnmf_fast import _update_cdnmf_fast
 from sklearn.decomposition import NMF
 from sklearn.utils import check_array, _deprecate_positional_args, check_X_y, check_random_state
 from sklearn.utils.extmath import randomized_svd, safe_sparse_dot
-from sklearn.utils.validation import check_non_negative
+from sklearn.utils.validation import check_non_negative, check_is_fitted
 from sklearn.exceptions import ConvergenceWarning
+from sklearn._config import config_context
 
 np.random.seed(10)
 
-# def initialize_user_feature_matrix(nr_of_users, n_components):
-#     '''
-#     Initializes the user_feature_matrix.
+def _compute_regularization(alpha, l1_ratio, regularization):
+    """Compute L1 and L2 regularization coefficients for W and H."""
+    alpha_H = 0.
+    alpha_W = 0.
+    if regularization in ('both', 'components'):
+        alpha_H = float(alpha)
+    if regularization in ('both', 'transformation'):
+        alpha_W = float(alpha)
 
-#     Parameters
-#     ----------
-#     nr_of_users : int
-#         The numbers of users that are present in the 
-#     n_components : int
-#         The number of components the user_feature_matrix should have.
-    
-#     Returns
-#     -------
-#     np.ndarray
-#         The user_feature_matrix
-#     '''
-#     return np.random.random_sample(size=(nr_of_users, n_components))
-
-# def initialize_item_feature_matrix(n_components, nr_of_items):
-#     '''
-#     Initializes the user_feature_matrix.
-
-#     Parameters
-#     ----------
-#     nr_of_users : int
-#         The numbers of users that are present in the 
-#     n_components : int
-#         The number of components the user_feature_matrix should have.
-    
-#     Returns
-#     -------
-#     np.ndarray
-#         The user_feature_matrix
-#     '''
-#     return np.random.random_sample(size=(n_components, nr_of_items))
-
-
-# def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
-#     '''
-#     Calculate the updates for user_feature_matrix.
-
-#     Parameters
-#     ----------
-#     user_feature_matrix : numpy.ndarray
-#         The user_feature_matrix to update.
-#     item_feature_matrix : numpy.ndarray
-#         The item_feature_matrix for update calculation.
-#     alpha : float
-#         The learning rate.
-#     errors : np.ndarray
-#         The errors of the last iteration.
-    
-#     Returns
-#     -------
-#     np.ndarray
-#         The updated user_feature_matrix.
-#     '''
-#     # TODO: why does np.matmul not work in this case?
-#     updates = 2*alpha*np.dot(errors, item_feature_matrix.transpose())
-#     # updates[np.isnan(updates)] = 0
-#     user_feature_matrix -= updates
-#     return user_feature_matrix # user_feature_matrix.values
-
+    l1_reg_W = alpha_W * l1_ratio
+    l1_reg_H = alpha_H * l1_ratio
+    l2_reg_W = alpha_W * (1. - l1_ratio)
+    l2_reg_H = alpha_H * (1. - l1_ratio)
+    return l1_reg_W, l1_reg_H, l2_reg_W, l2_reg_H
 
 def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
                                random_state):
@@ -118,31 +69,6 @@ def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
     permutation = np.asarray(permutation, dtype=np.intp)
     return _update_cdnmf_fast(W, HHt, XHt, permutation)
 
-# def update_item_feature_matrix(item_feature_matrix, user_feature_matrix, alpha, errors):
-#     '''
-#     Calculate the updates for user_feature_matrix.
-
-#     Parameters
-#     ----------
-#     item_feature_matrix : numpy.ndarray
-#         The item_feature_matrix to update.
-#     user_feature_matrix : numpy.ndarray
-#         The user_feature_matrix for update calculation.
-#     alpha : float
-#         The learning rate.
-#     errors : np.ndarray
-#         The errors of the last iteration.
-    
-#     Returns
-#     -------
-#     np.ndarray
-#         The updated user_feature_matrix.
-#     '''
-#     # TODO: why does np.matmul not work in this case?
-#     updates = 2*alpha*np.dot(user_feature_matrix.transpose(), errors)
-#     # updates[np.isnan(updates)] = 0
-#     item_feature_matrix -= updates
-#     return item_feature_matrix
 
 # TODO: get rid of default random state
 def initialize_wh(X, n_components, n_samples, n_features, random_state=42):
@@ -510,6 +436,7 @@ class CustomNMF(NMF):
 
         return out
     
+    
     def fit_transform(self, X, y=None, W=None, H=None):
         """Learn a NMF model for the data X and returns the transformed data.
         This is more efficient than calling fit followed by transform.
@@ -558,25 +485,32 @@ class CustomNMF(NMF):
 
         return W
 
-    # def fit_transform(self, X, y=None, W=None, H=None):
-    #     if X.isna().any().any():
-    #         W = initialize_user_feature_matrix(X.shape[0], self.n_components)
-    #         H = initialize_item_feature_matrix(self.n_components, X.shape[1])
-    #         Rhat = np.dot(W, H)
-    #         errors = Rhat - X
-    #         errors[np.isnan(errors)] = 0
-    #         for i in range(self.max_iter):
-    #             W = update_user_feature_matrix(W, H, self.alpha, errors)
-    #             H = update_item_feature_matrix(H, W, self.alpha, errors)
-    #             Rhat = np.matmul(W, H)
-    #             errors = Rhat - X
-    #             errors[np.isnan(errors)] = 0
-    #             # print(f'We are in iteration {i}')
-    #             # print(f'The mse is {round(np.nansum(errors**2), 2)}')
 
-    #         self.n_components_ = H.shape[0]
-    #         self.components_ = H
-    #         self.n_iter_ = self.max_iter
-    #         return np.round(Rhat, 2)
-    #     super().fit_transform(X, y=y, W=W, H=H)
-# %%
+    def transform(self, X):
+        """Transform the data X according to the fitted NMF model.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            Data matrix to be transformed by the model.
+        Returns
+        -------
+        W : ndarray of shape (n_samples, n_components)
+            Transformed data.
+        """
+        check_is_fitted(self)
+        X = self._validate_data(X, accept_sparse=('csr', 'csc'),
+                                dtype=[np.float64, np.float32],
+                                reset=False)
+
+        with config_context(assume_finite=True):
+            W, _, n_iter_ = non_negative_factorization(
+                X=X, W=None, H=self.components_,
+                n_components=self.n_components_,
+                init=self.init, update_H=False, solver=self.solver,
+                beta_loss=self.beta_loss, tol=self.tol, max_iter=self.max_iter,
+                alpha=self.alpha, l1_ratio=self.l1_ratio,
+                regularization=None, # TODO: what to do about this? self.regularization,
+                random_state=self.random_state,
+                verbose=self.verbose, shuffle=self.shuffle)
+
+        return W
