@@ -18,6 +18,25 @@ from sklearn._config import config_context
 
 np.random.seed(10)
 
+## TODO: alpha here is the learning rate. alpha in sklearn is the regularization strength. Change that!
+def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, alpha=0.001):
+        try:
+            if not W:
+                W = initialize_user_feature_matrix(X.shape[0], H.shape[0])
+        except:
+            pass
+        # H = initialize_item_feature_matrix(X.shape[1], self.n_components)
+        Rhat = np.dot(W, H)
+        errors = Rhat - X
+        for i in range(n_iter_):
+            W = update_user_feature_matrix(W, H, alpha, errors)
+            H = update_item_feature_matrix(W, H, alpha, errors)
+            Rhat = np.matmul(W, H)
+            errors = Rhat - X
+            # print(f'We are in iteration {i}')
+            # print(f'The mse is {round(np.nansum(errors**2), 2)}')
+        return W, H, n_iter_
+
 def _compute_regularization(alpha, l1_ratio, regularization):
     """Compute L1 and L2 regularization coefficients for W and H."""
     alpha_H = 0.
@@ -33,6 +52,86 @@ def _compute_regularization(alpha, l1_ratio, regularization):
     l2_reg_H = alpha_H * (1. - l1_ratio)
     return l1_reg_W, l1_reg_H, l2_reg_W, l2_reg_H
 
+'''
+Write my own algorithm that performs NMF on the matrix and returns the 
+imputed matrix.
+'''
+
+import pandas as pd
+import numpy as np
+from sklearn.decomposition import NMF
+
+np.random.seed(10)
+
+def initialize_user_feature_matrix(nr_of_users, n_components):
+    '''
+    Initializes the user_feature_matrix.
+
+    Parameters
+    ----------
+    nr_of_users : int
+        The numbers of users that are present in the 
+    n_components : int
+        The number of components the user_feature_matrix should have.
+    
+    Returns
+    -------
+    np.ndarray
+        The user_feature_matrix
+    '''
+    return np.random.randint(1, 3, size=(nr_of_users, n_components)).astype(float)
+
+def initialize_item_feature_matrix(nr_of_items, n_components):
+    '''
+    Initializes the user_feature_matrix.
+
+    Parameters
+    ----------
+    nr_of_users : int
+        The numbers of users that are present in the 
+    n_components : int
+        The number of components the user_feature_matrix should have.
+    
+    Returns
+    -------
+    np.ndarray
+        The user_feature_matrix
+    '''
+    return np.random.randint(1, 3, size=(n_components, nr_of_items)).astype(float)
+
+
+def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
+    # calculate the updates for user_feature_matrix
+    user_feature_matrix = pd.DataFrame(user_feature_matrix)
+    item_feature_matrix = pd.DataFrame(item_feature_matrix)
+    errors = pd.DataFrame(errors)
+    for user in user_feature_matrix.index:
+        for feature in user_feature_matrix.columns:
+            update = 0
+            old = user_feature_matrix.at[user, feature]
+            for i, error in enumerate(errors.iloc[user]):
+                if not pd.isna(error):
+                    update -= 2*alpha*error*item_feature_matrix.loc[feature].iat[i]
+            user_feature_matrix.at[user, feature] = old+update
+    return user_feature_matrix.values
+
+
+def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
+    # calculate the updates for user_feature_matrix
+    user_feature_matrix = pd.DataFrame(user_feature_matrix)
+    item_feature_matrix = pd.DataFrame(item_feature_matrix)
+    errors = pd.DataFrame(errors)
+    for feature in item_feature_matrix.index:
+        for item in item_feature_matrix.columns:
+            update = 0
+            old = item_feature_matrix.at[feature, item]
+            for i, error in enumerate(errors.iloc[:,item]):
+                if not pd.isna(error):
+                    update -= 2*alpha*error*user_feature_matrix.loc[:,feature].iat[i]
+            item_feature_matrix.at[feature, item] = old+update
+    return item_feature_matrix.values
+
+
 def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
                                random_state):
     """Helper function for _fit_coordinate_descent
@@ -44,6 +143,8 @@ def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
 
     HHt = np.dot(Ht.T, Ht)
     ## Added: Make the missing values zeros
+    
+    # TODO: This does not work. It has the same effect as imputing the value with 0
     X[np.isnan(X)] = 0
     XHt = safe_sparse_dot(X, Ht)
     #print(f'X is {X}')
@@ -67,6 +168,8 @@ def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
         permutation = np.arange(n_components)
     # The following seems to be required on 64-bit Windows w/ Python 3.5.
     permutation = np.asarray(permutation, dtype=np.intp)
+
+    # Ultimately returns an updated to a coordinate in 
     return _update_cdnmf_fast(W, HHt, XHt, permutation)
 
 
@@ -468,13 +571,15 @@ class CustomNMF(NMF):
         X = self._validate_data(X, accept_sparse=('csr', 'csc'),
                                 dtype=[np.float64, np.float32])
 
-        W, H, n_iter_ = non_negative_factorization(
-            X=X, W=W, H=H, n_components=self.n_components, init=self.init,
-            update_H=True, solver=self.solver, beta_loss=self.beta_loss,
-            tol=self.tol, max_iter=self.max_iter, alpha=self.alpha,
-            l1_ratio=self.l1_ratio, regularization='both',
-            random_state=self.random_state, verbose=self.verbose,
-            shuffle=self.shuffle)
+        W, H, n_iter_ = custom_non_negative_factorization(X=X, W=W, H=H, 
+                            n_iter_=self.max_iter, alpha=0.001)
+        # non_negative_factorization(
+        #     X=X, W=W, H=H, n_components=self.n_components, init=self.init,
+        #     update_H=True, solver=self.solver, beta_loss=self.beta_loss,
+        #     tol=self.tol, max_iter=self.max_iter, alpha=self.alpha,
+        #     l1_ratio=self.l1_ratio, regularization='both',
+        #     random_state=self.random_state, verbose=self.verbose,
+        #     shuffle=self.shuffle)
 
         self.reconstruction_err_ = _beta_divergence(X, W, H, self.beta_loss,
                                                     square_root=True)
@@ -503,14 +608,16 @@ class CustomNMF(NMF):
                                 reset=False)
 
         with config_context(assume_finite=True):
-            W, _, n_iter_ = non_negative_factorization(
-                X=X, W=None, H=self.components_,
-                n_components=self.n_components_,
-                init=self.init, update_H=False, solver=self.solver,
-                beta_loss=self.beta_loss, tol=self.tol, max_iter=self.max_iter,
-                alpha=self.alpha, l1_ratio=self.l1_ratio,
-                regularization=None, # TODO: what to do about this? self.regularization,
-                random_state=self.random_state,
-                verbose=self.verbose, shuffle=self.shuffle)
+            W, _, n_iter_ = custom_non_negative_factorization(X=X, W=None, H=self.components_, 
+                            n_iter_=self.max_iter, alpha=0.001)
+            # non_negative_factorization(
+            #     X=X, W=None, H=self.components_,
+            #     n_components=self.n_components_,
+            #     init=self.init, update_H=False, solver=self.solver,
+            #     beta_loss=self.beta_loss, tol=self.tol, max_iter=self.max_iter,
+            #     alpha=self.alpha, l1_ratio=self.l1_ratio,
+            #     regularization=None, # TODO: what to do about this? self.regularization,
+            #     random_state=self.random_state,
+            #     verbose=self.verbose, shuffle=self.shuffle)
 
         return W

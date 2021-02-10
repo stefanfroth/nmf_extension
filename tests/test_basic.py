@@ -33,8 +33,8 @@ def test_transform(test_data, test_model):
     '''Tests whether an input array with null values can be transformed'''
     R_missing = test_data[1]
     test_model.fit_transform(R_missing)
-    new_user = np.ones((1,1000))
-    mask = np.random.randint(1000)
+    new_user = np.ones((1,10))
+    mask = np.random.randint(10)
     new_user[:,mask] = np.nan
     assert isinstance(np.matmul(test_model.transform(new_user), test_model.components_), np.ndarray)
 
@@ -61,7 +61,7 @@ def test_better(test_data, test_model, impute, components, iterations):
     # Calculate R_hat with CustomNMF
     P_hat = test_model.fit_transform(R_missing)
     R_hat = np.matmul(P_hat, test_model.components_)
-    mse_custom = mean_squared_error(R, R_hat)
+    mse_custom = mean_squared_error(R[~np.isnan(R)], R_hat[~np.isnan(R)])
     logging.info(f'The mean squared error of this technique is {mse_custom}')
 
     # Calculate R_hat with zero imputation
@@ -71,7 +71,7 @@ def test_better(test_data, test_model, impute, components, iterations):
     # P_hat_zero_imputed = classic_nmf.fit_transform(R_missing)
     # R_hat_imputed = np.matmul(P_hat_zero_imputed, classic_nmf.components_)
     R_hat_imputed = fit_model(NMF(n_components=components, max_iter=iterations), R_missing)
-    mse_imputed = mean_squared_error(R, R_hat_imputed)
+    mse_imputed = mean_squared_error(R[~np.isnan(R)], R_hat_imputed[~np.isnan(R)])
     logging.info(f'The mean squared error of the {impute} imputed variant is {mse_imputed}')
 
     # Assert that the algorithm works better
