@@ -596,8 +596,8 @@ class CustomNMF(NMF):
                                 dtype=[np.float64, np.float32])
 
         ## TODO: Find a proper solution for an adaptive learning rate
-        #LEARNING_RATE=0.5*1/10**len(str(X.shape[0])) + 0.5*1/10**len(str(X.shape[1]))
-        LEARNING_RATE=0.0001
+        LEARNING_RATE = min(10/(X.shape[0]*X.shape[1]), 0.001)
+        #LEARNING_RATE=0.0001
 
         W, H, n_iter_ = custom_non_negative_factorization(X=X, W=W, H=H, 
                             n_iter_=self.max_iter, alpha=LEARNING_RATE)
@@ -636,8 +636,8 @@ class CustomNMF(NMF):
                                 reset=False)
 
         ## TODO: Find a proper solution for an adaptive learning rate
-        # LEARNING_RATE=0.5*1/10**len(str(X.shape[0])) + 0.5*1/10**len(str(X.shape[1]))
-        LEARNING_RATE=0.0001
+        LEARNING_RATE = min(10/(X.shape[0]*X.shape[1]), 0.001)
+        #LEARNING_RATE=0.0001
 
         with config_context(assume_finite=True):
             W, _, n_iter_ = custom_non_negative_factorization(X=X, W=None, H=self.components_, 
@@ -653,3 +653,4 @@ class CustomNMF(NMF):
             #     verbose=self.verbose, shuffle=self.shuffle)
 
         return W
+# %%
