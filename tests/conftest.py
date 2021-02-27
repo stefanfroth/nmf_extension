@@ -6,7 +6,7 @@ from nmf_extension.nmf import CustomNMF
 # Set number of components
 @pytest.fixture(scope='module')
 def components():
-    return 4
+    return 10
 
 # Set the maximum number of iterations
 @pytest.fixture(scope='module')
@@ -16,12 +16,12 @@ def iterations():
 # Set number of users
 @pytest.fixture(scope='module')
 def n_users():
-    return 300
+    return 1000
 
 # Set number of items
 @pytest.fixture(scope='module')
 def n_items():
-    return 300
+    return 1000
 
 ## TODO: Check whether it is faster to load from a file or to create new each time
 ## TODO: Parametrize the fixture to change amount of data missing
@@ -70,6 +70,7 @@ def r_hat(test_model, p_hat):
 @pytest.fixture(scope='module')
 def mse_nmf(test_data, r_hat):
     '''Calculate the nmf for the test model'''
-    R_missing = test_data[0]
-    mse_custom = mean_squared_error(R_missing[~np.isnan(R_missing)], r_hat[~np.isnan(R_missing)])
+    R_missing = test_data[1]
+    # mse_custom = mean_squared_error(R_missing[~np.isnan(R_missing)], r_hat[~np.isnan(R_missing)])
+    mse_custom = np.nansum((R_missing - r_hat)**2)/(R_missing.size - np.isnan(R_missing).sum())
     return mse_custom
