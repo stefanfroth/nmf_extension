@@ -103,16 +103,25 @@ def initialize_item_feature_matrix(nr_of_items, n_components):
 def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
     # calculate the updates for user_feature_matrix
 
-    ## Numpy version reduces runtime by roughly 3/4 only for user_feature_matrix
+    ## Numpy version with array calculations reduces runtime by roughly 50% for user_feature_matrix only
     for user in range(user_feature_matrix.shape[0]):
-        for feature in range(user_feature_matrix.shape[1]):
-            update = 0
-            for i, error in enumerate(errors[user]):
-                if not np.isnan(error):
-                    update -= 2*alpha*error*item_feature_matrix[feature,i]
-            user_feature_matrix[user, feature] = np.maximum(user_feature_matrix[user, feature]+update, 0)
-            # print(f'The new user_feature_matrix is {user_feature_matrix}')
+        # for feature in range(user_feature_matrix.shape[1]):
+        mask_rated = ~np.isnan(errors[user])
+        updates = -2*alpha*np.matmul(item_feature_matrix[:,mask_rated], errors[user,mask_rated].T)
+        user_feature_matrix[user] += updates
     return user_feature_matrix
+        
+
+    ## Numpy version reduces runtime by roughly 3/4 only for user_feature_matrix
+    # for user in range(user_feature_matrix.shape[0]):
+    #     for feature in range(user_feature_matrix.shape[1]):
+    #         update = 0
+    #         for i, error in enumerate(errors[user]):
+    #             if not np.isnan(error):
+    #                 update -= 2*alpha*error*item_feature_matrix[feature,i]
+    #         user_feature_matrix[user, feature] = np.maximum(user_feature_matrix[user, feature]+update, 0)
+    #         # print(f'The new user_feature_matrix is {user_feature_matrix}')
+    # return user_feature_matrix
 
     # user_feature_matrix = pd.DataFrame(user_feature_matrix)
     # item_feature_matrix = pd.DataFrame(item_feature_matrix)
@@ -130,16 +139,25 @@ def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, 
 
 def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
     # calculate the updates for user_feature_matrix
-    ## Introducing Numpy for both update functions reduces the runtime by 90%
-    for feature in range(item_feature_matrix.shape[0]):
-        for item in range(item_feature_matrix.shape[1]):
-            update = 0
-            for i, error in enumerate(errors[:,item]):
-                if not np.isnan(error):
-                    update -= 2*alpha*error*user_feature_matrix[i,feature]
-            item_feature_matrix[feature, item] = np.maximum(item_feature_matrix[feature, item]+update, 0) 
-            # print(f'The new item_feature_matrix is {item_feature_matrix}')
+
+    ## Numpy version with array calculations reduces runtime by roughly 98% for both functions
+    for item in range(item_feature_matrix.shape[1]):
+        mask_rated = ~np.isnan(errors[:,item])
+        updates = -2*alpha*np.matmul(errors[mask_rated,item].T, user_feature_matrix[mask_rated,:])
+        item_feature_matrix[:,item] += updates
     return item_feature_matrix
+
+
+    ## Introducing Numpy for both update functions reduces the runtime by 90%
+    # for feature in range(item_feature_matrix.shape[0]):
+    #     for item in range(item_feature_matrix.shape[1]):
+    #         update = 0
+    #         for i, error in enumerate(errors[:,item]):
+    #             if not np.isnan(error):
+    #                 update -= 2*alpha*error*user_feature_matrix[i,feature]
+    #         item_feature_matrix[feature, item] = np.maximum(item_feature_matrix[feature, item]+update, 0) 
+    #         # print(f'The new item_feature_matrix is {item_feature_matrix}')
+    # return item_feature_matrix
 
 
     # user_feature_matrix = pd.DataFrame(user_feature_matrix)
