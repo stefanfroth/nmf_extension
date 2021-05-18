@@ -18,24 +18,22 @@ from sklearn._config import config_context
 
 np.random.seed(10)
 
-## TODO: alpha here is the learning rate. alpha in sklearn is the regularization strength. Change that!
-def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, alpha=0.0001):
+
+def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, lr=0.0001):
         try:
             if not W:
                 W = initialize_user_feature_matrix(X.shape[0], H.shape[0])
         except:
             pass
-        # H = initialize_item_feature_matrix(X.shape[1], self.n_components)
         Rhat = np.dot(W, H)
         errors = Rhat - X
         for i in range(n_iter_):
-            W = update_user_feature_matrix(W, H, alpha, errors)
-            H = update_item_feature_matrix(W, H, alpha, errors)
+            W = update_user_feature_matrix(W, H, lr, errors)
+            H = update_item_feature_matrix(W, H, lr, errors)
             Rhat = np.matmul(W, H)
             errors = Rhat - X
-            # print(f'We are in iteration {i}')
-            # print(f'The mse is {round(np.nansum(errors**2), 2)}')
         return W, H, n_iter_
+
 
 def _compute_regularization(alpha, l1_ratio, regularization):
     """Compute L1 and L2 regularization coefficients for W and H."""
@@ -100,78 +98,20 @@ def initialize_item_feature_matrix(nr_of_items, n_components):
     return np.random.randint(1, 3, size=(n_components, nr_of_items)).astype(float)
 
 
-def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
-    # calculate the updates for user_feature_matrix
-
-    ## Numpy version with array calculations reduces runtime by roughly 50% for user_feature_matrix only
+def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors):
     for user in range(user_feature_matrix.shape[0]):
-        # for feature in range(user_feature_matrix.shape[1]):
         mask_rated = ~np.isnan(errors[user])
-        updates = -2*alpha*np.matmul(item_feature_matrix[:,mask_rated], errors[user,mask_rated].T)
+        updates = -2*lr*np.matmul(item_feature_matrix[:,mask_rated], errors[user,mask_rated].T)
         user_feature_matrix[user] += updates
     return user_feature_matrix
-        
-
-    ## Numpy version reduces runtime by roughly 3/4 only for user_feature_matrix
-    # for user in range(user_feature_matrix.shape[0]):
-    #     for feature in range(user_feature_matrix.shape[1]):
-    #         update = 0
-    #         for i, error in enumerate(errors[user]):
-    #             if not np.isnan(error):
-    #                 update -= 2*alpha*error*item_feature_matrix[feature,i]
-    #         user_feature_matrix[user, feature] = np.maximum(user_feature_matrix[user, feature]+update, 0)
-    #         # print(f'The new user_feature_matrix is {user_feature_matrix}')
-    # return user_feature_matrix
-
-    # user_feature_matrix = pd.DataFrame(user_feature_matrix)
-    # item_feature_matrix = pd.DataFrame(item_feature_matrix)
-    # errors = pd.DataFrame(errors)
-    # for user in user_feature_matrix.index:
-    #     for feature in user_feature_matrix.columns:
-    #         update = 0
-    #         old = user_feature_matrix.at[user, feature]
-    #         for i, error in enumerate(errors.iloc[user]):
-    #             if not pd.isna(error):
-    #                 update -= 2*alpha*error*item_feature_matrix.loc[feature].iat[i]
-    #         user_feature_matrix.at[user, feature] = old+update
-    # return user_feature_matrix.values
 
 
-def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, alpha, errors):
-    # calculate the updates for user_feature_matrix
-
-    ## Numpy version with array calculations reduces runtime by roughly 98% for both functions
+def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors):
     for item in range(item_feature_matrix.shape[1]):
         mask_rated = ~np.isnan(errors[:,item])
-        updates = -2*alpha*np.matmul(errors[mask_rated,item].T, user_feature_matrix[mask_rated,:])
+        updates = -2*lr*np.matmul(errors[mask_rated,item].T, user_feature_matrix[mask_rated,:])
         item_feature_matrix[:,item] += updates
     return item_feature_matrix
-
-
-    ## Introducing Numpy for both update functions reduces the runtime by 90%
-    # for feature in range(item_feature_matrix.shape[0]):
-    #     for item in range(item_feature_matrix.shape[1]):
-    #         update = 0
-    #         for i, error in enumerate(errors[:,item]):
-    #             if not np.isnan(error):
-    #                 update -= 2*alpha*error*user_feature_matrix[i,feature]
-    #         item_feature_matrix[feature, item] = np.maximum(item_feature_matrix[feature, item]+update, 0) 
-    #         # print(f'The new item_feature_matrix is {item_feature_matrix}')
-    # return item_feature_matrix
-
-
-    # user_feature_matrix = pd.DataFrame(user_feature_matrix)
-    # item_feature_matrix = pd.DataFrame(item_feature_matrix)
-    # errors = pd.DataFrame(errors)
-    # for feature in item_feature_matrix.index:
-    #     for item in item_feature_matrix.columns:
-    #         update = 0
-    #         old = item_feature_matrix.at[feature, item]
-    #         for i, error in enumerate(errors.iloc[:,item]):
-    #             if not pd.isna(error):
-    #                 update -= 2*alpha*error*user_feature_matrix.loc[:,feature].iat[i]
-    #         item_feature_matrix.at[feature, item] = old+update
-    # return item_feature_matrix.values
 
 
 def _update_coordinate_descent(X, W, Ht, l1_reg, l2_reg, shuffle,
@@ -513,11 +453,6 @@ def non_negative_factorization(X, W=None, H=None, n_components=None, *,
     return W, H, n_iter
 
 
-# class CustomBaseEstimator(BaseEstimator):
-#     '''
-#     Rewrite the BaseEstimator so that it allows nan values.
-#     '''
-
     
 class CustomNMF(NMF):
     '''
@@ -618,7 +553,7 @@ class CustomNMF(NMF):
         #LEARNING_RATE=0.0001
 
         W, H, n_iter_ = custom_non_negative_factorization(X=X, W=W, H=H, 
-                            n_iter_=self.max_iter, alpha=LEARNING_RATE)
+                            n_iter_=self.max_iter, lr=LEARNING_RATE)
         # non_negative_factorization(
         #     X=X, W=W, H=H, n_components=self.n_components, init=self.init,
         #     update_H=True, solver=self.solver, beta_loss=self.beta_loss,
@@ -637,6 +572,7 @@ class CustomNMF(NMF):
         return W
 
 
+    # Todo: Currently not working
     def transform(self, X):
         """Transform the data X according to the fitted NMF model.
         Parameters
@@ -659,7 +595,7 @@ class CustomNMF(NMF):
 
         with config_context(assume_finite=True):
             W, _, n_iter_ = custom_non_negative_factorization(X=X, W=None, H=self.components_, 
-                            n_iter_=self.max_iter, alpha=LEARNING_RATE)
+                            n_iter_=self.max_iter, lr=LEARNING_RATE)
             # non_negative_factorization(
             #     X=X, W=None, H=self.components_,
             #     n_components=self.n_components_,
@@ -670,5 +606,5 @@ class CustomNMF(NMF):
             #     random_state=self.random_state,
             #     verbose=self.verbose, shuffle=self.shuffle)
 
-        return W
+            return W
 # %%
