@@ -19,7 +19,9 @@ from sklearn._config import config_context
 np.random.seed(10)
 
 
-def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, lr=0.0001):
+# TODO: What regularization strength makes sense?
+# TODO: Make the regularization strength adjustable
+def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, lr=0.0001, alpha=0.005):
         try:
             if not W:
                 W = initialize_user_feature_matrix(X.shape[0], H.shape[0])
@@ -28,8 +30,8 @@ def custom_non_negative_factorization(X, y=None, W=None, H=None, n_iter_=200, lr
         Rhat = np.dot(W, H)
         errors = Rhat - X
         for i in range(n_iter_):
-            W = update_user_feature_matrix(W, H, lr, errors)
-            H = update_item_feature_matrix(W, H, lr, errors)
+            W = update_user_feature_matrix(W, H, lr, errors, alpha)
+            H = update_item_feature_matrix(W, H, lr, errors, alpha)
             Rhat = np.matmul(W, H)
             errors = Rhat - X
         return W, H, n_iter_
@@ -98,18 +100,41 @@ def initialize_item_feature_matrix(nr_of_items, n_components):
     return np.random.randint(1, 3, size=(n_components, nr_of_items)).astype(float)
 
 
-def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors):
+def update_user_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors, alpha):
+    '''
+    Updates the user_feature_matrix via coordinate descent.
+
+    Parameters
+    ----------
+    user_feature_matrix : np.ndarray
+        The current user_feature_matrix
+    item_feature_matrix : np.ndarray
+        The current item_feature_matrix
+    lr : float
+        The learning rate
+    errors : np.ndarray
+        The errors of the rating predictions of the current errors
+    alpha : float
+        The regularization strength
+
+    Returns
+    -------
+    np.ndarray
+        The updated user_feature_matrix
+    '''
     for user in range(user_feature_matrix.shape[0]):
         mask_rated = ~np.isnan(errors[user])
-        updates = -2*lr*np.matmul(item_feature_matrix[:,mask_rated], errors[user,mask_rated].T)
+        updates = -2*lr*np.matmul(item_feature_matrix[:,mask_rated], 
+        errors[user,mask_rated].T) - 2*alpha*user_feature_matrix[user]
         user_feature_matrix[user] += updates
     return user_feature_matrix
 
 
-def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors):
+def update_item_feature_matrix(user_feature_matrix, item_feature_matrix, lr, errors, alpha):
     for item in range(item_feature_matrix.shape[1]):
         mask_rated = ~np.isnan(errors[:,item])
-        updates = -2*lr*np.matmul(errors[mask_rated,item].T, user_feature_matrix[mask_rated,:])
+        updates = -2*lr*np.matmul(errors[mask_rated,item].T, 
+        user_feature_matrix[mask_rated,:])-2*alpha*item_feature_matrix[:,item]
         item_feature_matrix[:,item] += updates
     return item_feature_matrix
 
